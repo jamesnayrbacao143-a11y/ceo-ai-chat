@@ -706,17 +706,6 @@ app.get('/api/health', (req, res) => {
 });
 
 // For Vercel serverless functions
-// Export as handler function
-module.exports = async (req, res) => {
-  try {
-    // Ensure database is initialized
-    if (!getPool()) {
-      await initDatabase();
-    }
-    return app(req, res);
-  } catch (error) {
-    console.error('Handler error:', error);
-    res.status(500).json({ error: 'Internal server error', message: error.message });
-  }
-};
+// Export Express app directly - Vercel handles it automatically
+module.exports = app;
 
