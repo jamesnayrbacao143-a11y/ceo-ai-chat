@@ -52,12 +52,12 @@ router.post('/signup', async (req, res) => {
     const pool = getPool();
 
     // Check if user already exists
-    const [existingUsers] = await pool.query(
-      'SELECT id FROM users WHERE email = ?',
+    const existingUsersResult = await pool.query(
+      'SELECT id FROM users WHERE email = $1',
       [email.toLowerCase()]
     );
 
-    if (existingUsers.length > 0) {
+    if (existingUsersResult.rows.length > 0) {
       return res.status(400).json({ error: 'Email already registered' });
     }
 
@@ -70,12 +70,12 @@ router.post('/signup', async (req, res) => {
     verificationTokenExpires.setHours(verificationTokenExpires.getHours() + 24);
 
     // Create user
-    const [result] = await pool.query(
-      'INSERT INTO users (email, password_hash, name, verification_token, verification_token_expires) VALUES (?, ?, ?, ?, ?)',
+    const result = await pool.query(
+      'INSERT INTO users (email, password_hash, name, verification_token, verification_token_expires) VALUES ($1, $2, $3, $4, $5) RETURNING id',
       [email.toLowerCase(), passwordHash, name || null, verificationToken, verificationTokenExpires]
     );
 
-    const userId = result.insertId;
+    const userId = result.rows[0].id;
 
     // Send verification email
     try {
@@ -107,16 +107,16 @@ router.post('/login', async (req, res) => {
     const pool = getPool();
 
     // Find user
-    const [users] = await pool.query(
-      'SELECT id, email, password_hash, name, is_verified FROM users WHERE email = ?',
+    const usersResult = await pool.query(
+      'SELECT id, email, password_hash, name, is_verified FROM users WHERE email = $1',
       [email.toLowerCase()]
     );
 
-    if (users.length === 0) {
+    if (usersResult.rows.length === 0) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    const user = users[0];
+    const user = usersResult.rows[0];
 
     // Check if email is verified
     if (!user.is_verified) {
@@ -162,16 +162,16 @@ router.get('/verify', async (req, res) => {
     const pool = getPool();
 
     // Find user by token
-    const [users] = await pool.query(
-      'SELECT id, verification_token_expires FROM users WHERE verification_token = ?',
+    const usersResult = await pool.query(
+      'SELECT id, verification_token_expires FROM users WHERE verification_token = $1',
       [token]
     );
 
-    if (users.length === 0) {
+    if (usersResult.rows.length === 0) {
       return res.status(400).json({ error: 'Invalid verification token' });
     }
 
-    const user = users[0];
+    const user = usersResult.rows[0];
 
     // Check if token expired
     if (new Date() > new Date(user.verification_token_expires)) {
@@ -179,16 +179,16 @@ router.get('/verify', async (req, res) => {
     }
 
     // Get user email and name before updating
-    const [userInfo] = await pool.query(
-      'SELECT email, name FROM users WHERE id = ?',
+    const userInfoResult = await pool.query(
+      'SELECT email, name FROM users WHERE id = $1',
       [user.id]
     );
-    const userEmail = userInfo[0].email;
-    const userName = userInfo[0].name;
+    const userEmail = userInfoResult.rows[0].email;
+    const userName = userInfoResult.rows[0].name;
 
     // Verify user
     await pool.query(
-      'UPDATE users SET is_verified = TRUE, verification_token = NULL, verification_token_expires = NULL WHERE id = ?',
+      'UPDATE users SET is_verified = TRUE, verification_token = NULL, verification_token_expires = NULL WHERE id = $1',
       [user.id]
     );
 
@@ -247,20 +247,20 @@ router.get('/me', async (req, res) => {
       const decoded = jwt.verify(token, JWT_SECRET);
       const pool = getPool();
 
-      const [users] = await pool.query(
-        'SELECT id, email, name, is_verified FROM users WHERE id = ?',
+      const usersResult = await pool.query(
+        'SELECT id, email, name, is_verified FROM users WHERE id = $1',
         [decoded.userId]
       );
 
-      if (users.length === 0) {
+      if (usersResult.rows.length === 0) {
         return res.status(401).json({ error: 'User not found' });
       }
 
-      const user = users[0];
+      const user = usersResult.rows[0];
 
       // Get upload count from last 4 hours
-      const [uploadCount] = await pool.query(
-        'SELECT COUNT(*) as count FROM user_uploads WHERE user_id = ? AND uploaded_at >= DATE_SUB(NOW(), INTERVAL 4 HOUR)',
+      const uploadCountResult = await pool.query(
+        "SELECT COUNT(*)::int as count FROM user_uploads WHERE user_id = $1 AND uploaded_at >= NOW() - INTERVAL '4 hours'",
         [user.id]
       );
 
@@ -271,7 +271,7 @@ router.get('/me', async (req, res) => {
           name: user.name,
           isVerified: user.is_verified
         },
-        uploadCount: uploadCount[0].count || 0,
+        uploadCount: parseInt(uploadCountResult.rows[0].count) || 0,
         uploadLimit: UPLOAD_LIMIT
       });
     } catch (jwtError) {
@@ -297,12 +297,12 @@ router.get('/upload-limit', async (req, res) => {
       const pool = getPool();
 
       // Count uploads from last 4 hours only
-      const [uploadCount] = await pool.query(
-        'SELECT COUNT(*) as count FROM user_uploads WHERE user_id = ? AND uploaded_at >= DATE_SUB(NOW(), INTERVAL 4 HOUR)',
+      const uploadCountResult = await pool.query(
+        "SELECT COUNT(*)::int as count FROM user_uploads WHERE user_id = $1 AND uploaded_at >= NOW() - INTERVAL '4 hours'",
         [decoded.userId]
       );
 
-      const count = uploadCount[0].count || 0;
+      const count = parseInt(uploadCountResult.rows[0].count) || 0;
       const remaining = Math.max(0, UPLOAD_LIMIT - count);
 
       res.json({
@@ -336,12 +336,12 @@ router.post('/record-upload', async (req, res) => {
       const pool = getPool();
 
       // Check current upload count from last 4 hours only
-      const [uploadCount] = await pool.query(
-        'SELECT COUNT(*) as count FROM user_uploads WHERE user_id = ? AND uploaded_at >= DATE_SUB(NOW(), INTERVAL 4 HOUR)',
+      const uploadCountResult = await pool.query(
+        "SELECT COUNT(*)::int as count FROM user_uploads WHERE user_id = $1 AND uploaded_at >= NOW() - INTERVAL '4 hours'",
         [decoded.userId]
       );
 
-      const count = uploadCount[0].count || 0;
+      const count = parseInt(uploadCountResult.rows[0].count) || 0;
 
       if (count >= UPLOAD_LIMIT) {
         return res.status(403).json({ 
@@ -351,7 +351,7 @@ router.post('/record-upload', async (req, res) => {
 
       // Record upload
       await pool.query(
-        'INSERT INTO user_uploads (user_id, session_id, file_name, file_size) VALUES (?, ?, ?, ?)',
+        'INSERT INTO user_uploads (user_id, session_id, file_name, file_size) VALUES ($1, $2, $3, $4)',
         [decoded.userId, sessionId || null, fileName || 'attachment', fileSize || 0]
       );
 
@@ -389,8 +389,8 @@ router.post('/chat-history', async (req, res) => {
       const pool = getPool();
 
       // Delete existing chat history for this user
-      await pool.query('DELETE FROM chat_messages WHERE user_id = ?', [decoded.userId]);
-      await pool.query('DELETE FROM user_sessions WHERE user_id = ?', [decoded.userId]);
+      await pool.query('DELETE FROM chat_messages WHERE user_id = $1', [decoded.userId]);
+      await pool.query('DELETE FROM user_sessions WHERE user_id = $1', [decoded.userId]);
 
       // Save each chat session
       for (const chat of chats) {
@@ -400,7 +400,9 @@ router.post('/chat-history', async (req, res) => {
 
         // Save session
         await pool.query(
-          'INSERT INTO user_sessions (user_id, session_id, topic) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE topic = ?, updated_at = CURRENT_TIMESTAMP',
+          `INSERT INTO user_sessions (user_id, session_id, topic) VALUES ($1, $2, $3) 
+           ON CONFLICT (session_id) 
+           DO UPDATE SET topic = $4, updated_at = CURRENT_TIMESTAMP`,
           [decoded.userId, chat.sessionId, chat.topic || 'New Chat', chat.topic || 'New Chat']
         );
 
@@ -410,10 +412,11 @@ router.post('/chat-history', async (req, res) => {
             continue;
           }
 
+          // PostgreSQL JSONB can accept JSON object directly
           const attachmentsJson = message.attachments ? JSON.stringify(message.attachments) : null;
 
           await pool.query(
-            'INSERT INTO chat_messages (user_id, session_id, role, content, attachments) VALUES (?, ?, ?, ?, ?)',
+            'INSERT INTO chat_messages (user_id, session_id, role, content, attachments) VALUES ($1, $2, $3, $4, $5::jsonb)',
             [decoded.userId, chat.sessionId, message.role, message.content, attachmentsJson]
           );
         }
@@ -443,16 +446,19 @@ router.get('/chat-history', async (req, res) => {
       const pool = getPool();
 
       // Get all sessions for this user
-      const [sessions] = await pool.query(
-        'SELECT session_id, topic, created_at, updated_at FROM user_sessions WHERE user_id = ? ORDER BY updated_at DESC',
+      const sessionsResult = await pool.query(
+        'SELECT session_id, topic, created_at, updated_at FROM user_sessions WHERE user_id = $1 ORDER BY updated_at DESC',
         [decoded.userId]
       );
 
       // Get all messages for this user
-      const [messages] = await pool.query(
-        'SELECT session_id, role, content, attachments, created_at FROM chat_messages WHERE user_id = ? ORDER BY created_at ASC',
+      const messagesResult = await pool.query(
+        'SELECT session_id, role, content, attachments, created_at FROM chat_messages WHERE user_id = $1 ORDER BY created_at ASC',
         [decoded.userId]
       );
+
+      const sessions = sessionsResult.rows;
+      const messages = messagesResult.rows;
 
       // Group messages by session
       const chatsMap = {};
@@ -477,7 +483,10 @@ router.get('/chat-history', async (req, res) => {
 
           if (message.attachments) {
             try {
-              messageObj.attachments = JSON.parse(message.attachments);
+              // PostgreSQL JSONB returns as object, not string
+              messageObj.attachments = typeof message.attachments === 'string' 
+                ? JSON.parse(message.attachments) 
+                : message.attachments;
             } catch (e) {
               // Invalid JSON, skip attachments
             }
@@ -571,45 +580,45 @@ router.get('/google/callback', async (req, res) => {
     const pool = getPool();
 
     // Check if user exists
-    const [existingUsers] = await pool.query(
-      'SELECT id, email, name, is_verified FROM users WHERE email = ?',
+    const existingUsersResult = await pool.query(
+      'SELECT id, email, name, is_verified FROM users WHERE email = $1',
       [googleEmail.toLowerCase()]
     );
 
     let userId;
     let user;
 
-    if (existingUsers.length > 0) {
+    if (existingUsersResult.rows.length > 0) {
       // User exists - update if needed and auto-verify
-      user = existingUsers[0];
+      user = existingUsersResult.rows[0];
       userId = user.id;
 
       // Auto-verify Google users (Google already verifies emails)
       if (!user.is_verified) {
         await pool.query(
-          'UPDATE users SET is_verified = TRUE, name = COALESCE(?, name) WHERE id = ?',
+          'UPDATE users SET is_verified = TRUE, name = COALESCE($1, name) WHERE id = $2',
           [googleName, userId]
         );
       }
     } else {
       // Create new user - auto-verified since Google verifies emails
-      const [result] = await pool.query(
-        'INSERT INTO users (email, password_hash, name, is_verified) VALUES (?, ?, ?, TRUE)',
+      const result = await pool.query(
+        'INSERT INTO users (email, password_hash, name, is_verified) VALUES ($1, $2, $3, TRUE) RETURNING id',
         [googleEmail.toLowerCase(), crypto.randomBytes(32).toString('hex'), googleName]
       );
-      userId = result.insertId;
+      userId = result.rows[0].id;
     }
 
     // Get updated user info
-    const [users] = await pool.query(
-      'SELECT id, email, name, is_verified FROM users WHERE id = ?',
+    const usersResult = await pool.query(
+      'SELECT id, email, name, is_verified FROM users WHERE id = $1',
       [userId]
     );
-    user = users[0];
+    user = usersResult.rows[0];
 
     // Send thank you email after Google login (only for new users)
     try {
-      const isNewUser = existingUsers.length === 0;
+      const isNewUser = existingUsersResult.rows.length === 0;
       if (isNewUser) {
         // Send welcome email for new Google users
         await sendThankYouEmail(user.email, user.name || googleName, 'google');

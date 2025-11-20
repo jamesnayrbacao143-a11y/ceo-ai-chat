@@ -380,12 +380,12 @@ app.post('/api/chat', async (req, res) => {
 
       // Check upload limit (last 4 hours only)
       const pool = getPool();
-      const [uploadCount] = await pool.query(
-        'SELECT COUNT(*) as count FROM user_uploads WHERE user_id = ? AND uploaded_at >= DATE_SUB(NOW(), INTERVAL 4 HOUR)',
+      const uploadCountResult = await pool.query(
+        "SELECT COUNT(*)::int as count FROM user_uploads WHERE user_id = $1 AND uploaded_at >= NOW() - INTERVAL '4 hours'",
         [decoded.userId]
       );
 
-      const count = uploadCount[0].count || 0;
+      const count = parseInt(uploadCountResult.rows[0].count) || 0;
       const UPLOAD_LIMIT = 5;
 
       if (count >= UPLOAD_LIMIT) {
@@ -397,7 +397,7 @@ app.post('/api/chat', async (req, res) => {
       // Record uploads
       for (const attachment of attachments) {
         await pool.query(
-          'INSERT INTO user_uploads (user_id, session_id, file_name, file_size) VALUES (?, ?, ?, ?)',
+          'INSERT INTO user_uploads (user_id, session_id, file_name, file_size) VALUES ($1, $2, $3, $4)',
           [decoded.userId, sessionId || null, attachment.name || 'attachment', attachment.size || 0]
         );
       }

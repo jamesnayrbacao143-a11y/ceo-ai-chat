@@ -4,9 +4,17 @@
     {
       "src": "api/server.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "api/cron-cleanup.js",
+      "use": "@vercel/node"
     }
   ],
   "routes": [
+    {
+      "src": "/api/cron/cleanup",
+      "dest": "/api/cron-cleanup.js"
+    },
     {
       "src": "/api/(.*)",
       "dest": "/api/server.js"
@@ -18,6 +26,12 @@
     {
       "src": "/(.*)",
       "dest": "/public/$1"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/cleanup",
+      "schedule": "0 2 * * *"
     }
   ],
   "env": {
