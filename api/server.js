@@ -708,16 +708,31 @@ app.get('/api/health', (req, res) => {
 // For Vercel serverless functions
 // Export as handler function (similar to cron-cleanup.js)
 module.exports = async (req, res) => {
+  // Log all incoming requests for debugging
+  console.log('=== INCOMING REQUEST ===');
+  console.log('Method:', req.method);
+  console.log('URL:', req.url);
+  console.log('Path:', req.path);
+  console.log('Headers:', JSON.stringify(req.headers, null, 2));
+  console.log('========================');
+  
   // Ensure database is initialized
   if (!getPool()) {
     try {
+      console.log('Initializing database...');
       await initDatabase();
+      console.log('Database initialized');
     } catch (err) {
       console.error('Database init error:', err);
     }
   }
   
   // Handle the request with Express app
-  return app(req, res);
+  try {
+    return app(req, res);
+  } catch (error) {
+    console.error('Handler error:', error);
+    res.status(500).json({ error: 'Internal server error', message: error.message });
+  }
 };
 
