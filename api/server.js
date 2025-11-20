@@ -706,6 +706,18 @@ app.get('/api/health', (req, res) => {
 });
 
 // For Vercel serverless functions
-// Export Express app directly - Vercel handles it automatically
-module.exports = app;
+// Export as handler function (similar to cron-cleanup.js)
+module.exports = async (req, res) => {
+  // Ensure database is initialized
+  if (!getPool()) {
+    try {
+      await initDatabase();
+    } catch (err) {
+      console.error('Database init error:', err);
+    }
+  }
+  
+  // Handle the request with Express app
+  return app(req, res);
+};
 
