@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CEO AI</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Top Navigation Bar -->
+    <nav class="top-nav">
+        <div class="nav-left">
+            <div class="logo">
+                <img src="logo.png" alt="CEO AI" class="logo-image">
+                <span class="logo-text">CEO AI</span>
+            </div>
+        </div>
+        <div class="nav-right">
+            <button class="dark-mode-toggle" id="darkModeToggle" title="Toggle Dark Mode">
+                <svg class="icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="5"></circle>
+                    <line x1="12" y1="1" x2="12" y2="3"></line>
+                    <line x1="12" y1="21" x2="12" y2="23"></line>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                    <line x1="1" y1="12" x2="3" y2="12"></line>
+                    <line x1="21" y1="12" x2="23" y2="12"></line>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+                <svg class="icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+            </button>
+            <button class="new-chat-btn" id="newChatBtn">+ New Chat</button>
+            <button class="menu-toggle" id="menuToggle">☰</button>
+        </div>
+    </nav>
+
+    <div class="main-container">
+        <!-- Left Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2>Chat History</h2>
+            </div>
+            <div class="search-box">
+                <input type="text" placeholder="Search chats..." id="searchChats">
+                <span class="search-icon">🔍</span>
+            </div>
+            <div class="chat-history">
+                <div class="history-section">
+                    <div class="section-title">Today</div>
+                    <!-- Chat items will be dynamically generated here -->
+                </div>
+            </div>
+            <div class="sidebar-footer">
+                <button class="upgrade-btn" id="upgradeBtn">Upgrade to CEO Pro</button>
+                <button class="delete-history-btn" id="clearBtn">Delete Chat History</button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <div class="chat-container" id="chatContainer">
+                <div class="welcome-screen">
+                    <h1>CEO AI</h1>
+                    <p class="welcome-description">CEO AI is an AI chatbot that writes text. You can use it to write stories, messages, or programming code.</p>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="input-area">
+                <!-- Model Selector -->
+                <div class="model-selector-container">
+                    <div class="model-selector">
+                        <button class="model-selector-btn" id="modelSelectorBtn">
+                            <span>Auto</span>
+                            <span class="dropdown-arrow">▼</span>
+                        </button>
+                        <div class="model-selector-dropdown" id="modelSelectorDropdown">
+                            <div class="model-option-header">
+                                <span>Search models</span>
+                            </div>
+                            <div class="model-option auto-option" data-model="auto">
+                                <div class="model-option-content">
+                                    <div class="model-option-name">Auto</div>
+                                    <div class="model-option-desc">Balanced quality and speed, recommended for most tasks</div>
+                                </div>
+                                <div class="toggle-switch active" data-model="auto">
+                                    <div class="toggle-slider"></div>
+                                </div>
+                            </div>
+                            <div class="model-divider"></div>
+                            <div class="model-option" data-model="openai/gpt-4o">
+                                <div class="model-option-content">
+                                    <div class="model-option-name">GPT-4o</div>
+                                    <div class="model-option-desc">OpenAI</div>
+                                </div>
+                                <span class="model-check">✓</span>
+                            </div>
+                            <div class="model-option" data-model="openai/gpt-4.1">
+                                <div class="model-option-content">
+                                    <div class="model-option-name">GPT-4.1</div>
+                                    <div class="model-option-desc">OpenAI (Azure AI)</div>
+                                </div>
+                                <span class="model-check">✓</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="input-wrapper-new">
+                    <div class="input-container">
+                        <div class="input-primary">
+                            <textarea 
+                                id="messageInput" 
+                                placeholder="Ask anything"
+                                rows="1"
+                            ></textarea>
+                        </div>
+                        <div class="input-footer">
+                            <div class="footer-actions">
+                                <input type="file" id="imageUpload" accept="image/*" style="display: none;" multiple>
+                                <button class="footer-btn attach-btn" id="attachBtn" title="Attach Image" aria-label="Attach Image">
+                                    <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                                        <path d="M4.33496 12.5V7.5C4.33496 7.13273 4.63273 6.83496 5 6.83496C5.36727 6.83496 5.66504 7.13273 5.66504 7.5V12.5C5.66504 14.8942 7.60585 16.835 10 16.835C12.3942 16.835 14.335 14.8942 14.335 12.5V5.83301C14.3348 4.35959 13.1404 3.16522 11.667 3.16504C10.1934 3.16504 8.99822 4.35948 8.99805 5.83301V12.5C8.99805 13.0532 9.44679 13.502 10 13.502C10.5532 13.502 11.002 13.0532 11.002 12.5V7.5C11.002 7.13273 11.2997 6.83496 11.667 6.83496C12.0341 6.83514 12.332 7.13284 12.332 7.5V12.5C12.332 13.7877 11.2877 14.832 10 14.832C8.71226 14.832 7.66797 13.7877 7.66797 12.5V5.83301C7.66814 3.62494 9.45888 1.83496 11.667 1.83496C13.875 1.83514 15.6649 3.62505 15.665 5.83301V12.5C15.665 15.6287 13.1287 18.165 10 18.165C6.87131 18.165 4.33496 15.6287 4.33496 12.5Z"></path>
+                                    </svg>
+                                </button>
+                                <button class="footer-btn search-btn" title="Search" aria-label="Search">
+                                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                                        <path d="M10 2.125C14.3492 2.125 17.875 5.65076 17.875 10C17.875 14.3492 14.3492 17.875 10 17.875C5.65076 17.875 2.125 14.3492 2.125 10C2.125 5.65076 5.65076 2.125 10 2.125ZM7.88672 10.625C7.94334 12.3161 8.22547 13.8134 8.63965 14.9053C8.87263 15.5194 9.1351 15.9733 9.39453 16.2627C9.65437 16.5524 9.86039 16.625 10 16.625C10.1396 16.625 10.3456 16.5524 10.6055 16.2627C10.8649 15.9733 11.1274 15.5194 11.3604 14.9053C11.7745 13.8134 12.0567 12.3161 12.1133 10.625H7.88672ZM3.40527 10.625C3.65313 13.2734 5.45957 15.4667 7.89844 16.2822C7.7409 15.997 7.5977 15.6834 7.4707 15.3486C6.99415 14.0923 6.69362 12.439 6.63672 10.625H3.40527ZM13.3633 10.625C13.3064 12.439 13.0059 14.0923 12.5293 15.3486C12.4022 15.6836 12.2582 15.9969 12.1006 16.2822C14.5399 15.467 16.3468 13.2737 16.5947 10.625H13.3633ZM12.1006 3.7168C12.2584 4.00235 12.4021 4.31613 12.5293 4.65137C13.0059 5.90775 13.3064 7.56102 13.3633 9.375H16.5947C16.3468 6.72615 14.54 4.53199 12.1006 3.7168ZM10 3.375C9.86039 3.375 9.65437 3.44756 9.39453 3.7373C9.1351 4.02672 8.87263 4.48057 8.63965 5.09473C8.22547 6.18664 7.94334 7.68388 7.88672 9.375H12.1133C12.0567 7.68388 11.7745 6.18664 11.3604 5.09473C11.1274 4.48057 10.8649 4.02672 10.6055 3.7373C10.3456 3.44756 10.1396 3.375 10 3.375ZM7.89844 3.7168C5.45942 4.53222 3.65314 6.72647 3.40527 9.375H6.63672C6.69362 7.56102 6.99415 5.90775 7.4707 4.65137C7.59781 4.31629 7.74073 4.00224 7.89844 3.7168Z"></path>
+                                    </svg>
+                                    <span>Search</span>
+                                </button>
+                                <button class="footer-btn study-btn" title="Study" aria-label="Study">
+                                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                                        <path d="M16.3965 5.01128C16.3963 4.93399 16.3489 4.87691 16.293 4.85406L16.2354 4.84332C13.9306 4.91764 12.5622 5.32101 10.665 6.34722V16.3716C11.3851 15.9994 12.0688 15.7115 12.7861 15.5015C13.8286 15.1965 14.9113 15.0633 16.2402 15.0435L16.2979 15.0308C16.353 15.0063 16.3965 14.9483 16.3965 14.8755V5.01128ZM3.54492 14.8765C3.54492 14.9725 3.62159 15.0422 3.70117 15.0435L4.19629 15.0562C5.94062 15.1247 7.26036 15.4201 8.65918 16.0484C8.05544 15.1706 7.14706 14.436 6.17871 14.1109V14.1099C5.56757 13.9045 5.16816 13.3314 5.16797 12.6988V4.98882C4.86679 4.93786 4.60268 4.8999 4.28223 4.87457L3.72754 4.84429C3.62093 4.84079 3.54505 4.92417 3.54492 5.01226V14.8765ZM17.7266 14.8755C17.7266 15.6314 17.1607 16.2751 16.4121 16.3628L16.2598 16.3736C15.0122 16.3922 14.0555 16.5159 13.1602 16.7779C12.2629 17.0404 11.3966 17.4508 10.3369 18.0738C10.129 18.1959 9.87099 18.1958 9.66309 18.0738C7.71455 16.9283 6.31974 16.4689 4.12988 16.3853L3.68164 16.3736C2.85966 16.3614 2.21484 15.6838 2.21484 14.8765V5.01226C2.21497 4.15391 2.93263 3.4871 3.77246 3.51519L4.39844 3.54937C4.67996 3.57191 4.92258 3.60421 5.16797 3.64214V2.51031C5.16797 1.44939 6.29018 0.645615 7.31055 1.15679L7.31152 1.15582C8.78675 1.89511 10.0656 3.33006 10.5352 4.91461C12.3595 3.98907 13.8688 3.58817 16.1924 3.51324L16.3506 3.51714C17.1285 3.5741 17.7264 4.23496 17.7266 5.01128V14.8755ZM6.49805 12.6988C6.49824 12.7723 6.5442 12.8296 6.60254 12.8492L6.96289 12.9859C7.85245 13.3586 8.68125 13.9846 9.33496 14.7496V5.5816C9.08794 4.37762 8.13648 3.1566 6.95801 2.47613L6.71582 2.34527C6.67779 2.32617 6.6337 2.32502 6.58301 2.35796C6.52946 2.39279 6.49805 2.44863 6.49805 2.51031V12.6988Z"></path>
+                                    </svg>
+                                    <span>Study</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="input-trailing">
+                            <button id="sendBtn" class="send-btn" title="Send" aria-label="Send">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Custom Modal for Upgrade Message -->
+    <div class="modal-overlay" id="upgradeModal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h2>Upgrade to CEO Pro</h2>
+                <button class="modal-close" id="closeModal">×</button>
+            </div>
+            <div class="modal-content">
+                <div class="modal-icon">🚀</div>
+                <p class="modal-message">Upgrade to CEO Pro is not available yet. The system is still under development by the Developer.</p>
+                <p class="modal-submessage">Please check back later for updates!</p>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn-primary" id="modalOkBtn">Got it</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
