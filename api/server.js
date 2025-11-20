@@ -694,6 +694,17 @@ app.post('/api/clear', (req, res) => {
   res.json({ success: true });
 });
 
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    vercel: process.env.VERCEL === '1',
+    hasDatabase: !!getPool(),
+    hasGithubToken: !!GITHUB_TOKEN
+  });
+});
+
 // For Vercel serverless functions
 // Export as handler function
 module.exports = async (req, res) => {
