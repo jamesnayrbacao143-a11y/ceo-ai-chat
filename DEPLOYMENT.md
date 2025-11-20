@@ -18,7 +18,7 @@ git add .
 
 ```bash
 git commit -m "Initial commit: CEO AI Chat Application"
-```
+```git
 
 ### 1.4 Create GitHub Repository
 
@@ -37,8 +37,8 @@ After creating the repository, GitHub will show you commands. Use these:
 
 ```bash
 # Add remote repository (replace YOUR_USERNAME with your GitHub username)
-git remote add origin https://github.com/YOUR_USERNAME/ceo-ai-chat.git
 
+git remote add origin https://github.com/YOUR_USERNAME/ceo-ai-chat.git
 # Rename branch to main (if needed)
 git branch -M main
 
