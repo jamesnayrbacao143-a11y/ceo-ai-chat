@@ -359,5 +359,18 @@ if (process.env.VERCEL !== '1') {
       console.log('Add GITHUB_TOKEN to your .env file.');
       console.log('Create your PAT token: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens');
     }
+  }).on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`\n❌ Error: Port ${PORT} is already in use!`);
+      console.error(`\nTo fix this, you can:`);
+      console.error(`1. Kill the process using port ${PORT}:`);
+      console.error(`   netstat -ano | findstr :${PORT}`);
+      console.error(`   taskkill /PID <PID> /F`);
+      console.error(`2. Or change the PORT in your .env file\n`);
+      process.exit(1);
+    } else {
+      console.error('Server error:', err);
+      process.exit(1);
+    }
   });
 }
