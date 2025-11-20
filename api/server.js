@@ -6,6 +6,7 @@ const { AzureKeyCredential } = require('@azure/core-auth');
 const Bytez = require('bytez.js');
 const jwt = require('jsonwebtoken');
 const { initDatabase, getPool } = require('../database/db');
+const serverless = require('serverless-http');
 require('dotenv').config();
 
 const ModelClient = aiInference.default;
@@ -686,5 +687,6 @@ app.post('/api/clear', (req, res) => {
   res.json({ success: true });
 });
 
-module.exports = app;
+// For Vercel serverless functions - wrap Express app with serverless-http
+module.exports = serverless(app);
 
