@@ -543,7 +543,20 @@ async function sendMessage() {
             })
         });
         
-        const data = await response.json();
+        // Check if response has content before parsing JSON
+        const responseText = await response.text();
+        if (!responseText || responseText.trim() === '') {
+            throw new Error('Empty response from server. Please check your API configuration.');
+        }
+        
+        let data;
+        try {
+            data = JSON.parse(responseText);
+        } catch (parseError) {
+            console.error('JSON Parse Error:', parseError);
+            console.error('Response text:', responseText);
+            throw new Error(`Invalid response from server: ${responseText.substring(0, 100)}`);
+        }
         
         // Remove typing indicator
         removeTypingIndicator(typingId);

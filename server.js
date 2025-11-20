@@ -11,9 +11,6 @@ const { isUnexpected } = aiInference;
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Export for Vercel serverless function
-module.exports = app;
-
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -344,6 +341,9 @@ app.post('/api/clear', (req, res) => {
   }
   res.json({ success: true });
 });
+
+// Export for Vercel serverless function
+module.exports = app;
 
 // Only start server if not in Vercel serverless environment
 if (process.env.VERCEL !== '1') {
