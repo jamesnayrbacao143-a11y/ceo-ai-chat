@@ -100,7 +100,7 @@ APP_URL=http://localhost:3000
 GOOGLE_CLIENT_ID=your_google_client_id_here
 GOOGLE_CLIENT_SECRET=your_google_client_secret_here
 GOOGLE_REDIRECT_URI=http://localhost:3000/api/auth/google/callback
-# For production: GOOGLE_REDIRECT_URI=https://yourdomain.com/api/auth/google/callback
+# For production: GOOGLE_REDIRECT_URI=https://https://harviongpt.vercel.app/api/auth/google/callback
 ```
 
 ### 6. Start the Server
