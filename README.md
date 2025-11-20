@@ -170,6 +170,81 @@ See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed instructions on:
 3. Add environment variables (`GITHUB_TOKEN`, `GITHUB_MODEL`)
 4. Deploy!
 
+## Example Code Snippets
+
+### Call GPT-4o or GPT-4o Mini via Bytez SDK
+
+```bash
+npm install bytez.js
+# or
+yarn add bytez.js
+```
+
+```js
+import Bytez from "bytez.js";
+
+const key = "ec0e3eed9019c51f69243492b97066f8";
+const sdk = new Bytez(key);
+
+const model = sdk.model("openai/gpt-4o-mini"); // or "openai/gpt-4o"
+
+const { error, output } = await model.run([
+  { role: "user", content: "Hello" }
+]);
+
+console.log({ error, output });
+```
+
+### Call GPT-4.1 via Bytez SDK
+
+```js
+import Bytez from "bytez.js";
+
+const key = "ec0e3eed9019c51f69243492b97066f8";
+const sdk = new Bytez(key);
+
+const model = sdk.model("openai/gpt-4.1");
+
+const { error, output } = await model.run([
+  {
+    role: "user",
+    content: "Hello"
+  }
+]);
+
+console.log({ error, output });
+```
+
+### Call GPT-4.1 Mini via GitHub Models API
+
+```js
+import OpenAI from "openai";
+
+const token = process.env["GITHUB_TOKEN"];
+const endpoint = "https://models.github.ai/inference";
+const model = "openai/gpt-4.1-mini";
+
+export async function main() {
+  const client = new OpenAI({ baseURL: endpoint, apiKey: token });
+
+  const response = await client.chat.completions.create({
+    messages: [
+      { role: "system", content: "" },
+      { role: "user", content: "What is the capital of France?" }
+    ],
+    temperature: 1,
+    top_p: 1,
+    model
+  });
+
+  console.log(response.choices[0].message.content);
+}
+
+main().catch((err) => {
+  console.error("The sample encountered an error:", err);
+});
+```
+
 ## License
 
 MIT License - feel free to use this project for personal or commercial purposes!
