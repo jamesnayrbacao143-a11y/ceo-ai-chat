@@ -6,7 +6,6 @@ const { AzureKeyCredential } = require('@azure/core-auth');
 const Bytez = require('bytez.js');
 const jwt = require('jsonwebtoken');
 const { initDatabase, getPool } = require('../database/db');
-const serverless = require('serverless-http');
 require('dotenv').config();
 
 const ModelClient = aiInference.default;
@@ -19,8 +18,16 @@ app.use(cors());
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
-// Initialize database
-initDatabase();
+// Add request logging for debugging
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
+
+// Initialize database (lazy initialization for serverless)
+initDatabase().catch(err => {
+  console.error('Database initialization error:', err);
+});
 
 // Auth routes
 const authRoutes = require('../routes/auth');
@@ -687,6 +694,18 @@ app.post('/api/clear', (req, res) => {
   res.json({ success: true });
 });
 
-// For Vercel serverless functions - wrap Express app with serverless-http
-module.exports = serverless(app);
+// For Vercel serverless functions
+// Export as handler function
+module.exports = async (req, res) => {
+  try {
+    // Ensure database is initialized
+    if (!getPool()) {
+      await initDatabase();
+    }
+    return app(req, res);
+  } catch (error) {
+    console.error('Handler error:', error);
+    res.status(500).json({ error: 'Internal server error', message: error.message });
+  }
+};
 
