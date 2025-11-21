@@ -821,23 +821,67 @@ app.get('/api/ping', (req, res) => {
 // Initialize database and create handler
 let handler;
 
+let handlerInitializing = false;
+
 async function getHandler() {
-  if (!handler) {
-    // Ensure database is initialized first
-    await ensureDatabase();
+  if (handler) {
+    return handler;
+  }
+  
+  // Prevent multiple simultaneous initializations
+  if (handlerInitializing) {
+    // Wait up to 5 seconds for handler initialization
+    const maxWait = 5000;
+    const startWait = Date.now();
+    while (!handler && (Date.now() - startWait) < maxWait) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    if (handler) return handler;
+  }
+  
+  handlerInitializing = true;
+  
+  try {
+    // Ensure database is initialized first (with timeout)
+    try {
+      await Promise.race([
+        ensureDatabase(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('DB init timeout')), 5000)
+        )
+      ]);
+    } catch (dbError) {
+      console.warn('Database init timeout/warning:', dbError.message);
+      // Continue anyway - some endpoints might work
+    }
     
     // Create serverless handler after database is ready
     handler = serverless(app, {
       binary: ['image/*', 'application/pdf']
     });
     console.log('Serverless handler created');
+  } finally {
+    handlerInitializing = false;
   }
+  
   return handler;
 }
 
 // Export async handler for Vercel
 module.exports = async (req, res) => {
   const startTime = Date.now();
+  
+  // Set a maximum execution time (4 minutes to avoid 5-minute timeout)
+  const MAX_EXECUTION_TIME = 240000; // 4 minutes
+  const timeoutId = setTimeout(() => {
+    if (!res.headersSent) {
+      console.error('Request timeout - sending 504 response');
+      res.status(504).json({ 
+        error: 'Request timeout', 
+        message: 'The request took too long to process'
+      });
+    }
+  }, MAX_EXECUTION_TIME);
   
   try {
     // Log all incoming requests for debugging
@@ -847,43 +891,46 @@ module.exports = async (req, res) => {
     console.log('Path:', req.path);
     console.log('Time:', new Date().toISOString());
     
-    // For health/ping endpoints, respond immediately without DB init
+    // For health/ping endpoints, respond immediately
     if (req.path === '/api/health' || req.path === '/api/ping') {
       console.log('Fast path: health/ping endpoint');
-      const serverlessHandler = await getHandler();
-      return serverlessHandler(req, res);
+      clearTimeout(timeoutId);
+      return res.status(200).json({ 
+        status: 'ok', 
+        timestamp: new Date().toISOString(),
+        database: dbInitialized ? 'connected' : 'pending'
+      });
     }
     
-    // For other endpoints, ensure database is initialized (with timeout)
-    try {
-      await Promise.race([
-        ensureDatabase(),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('DB init timeout')), 10000)
-        )
-      ]);
-    } catch (dbError) {
-      console.warn('Database init timeout/warning:', dbError.message);
-      // Continue anyway - some endpoints might work
-    }
-    
-    // Get handler (will initialize database if needed)
-    const serverlessHandler = await getHandler();
+    // Get handler (will initialize database if needed, with timeout)
+    const serverlessHandler = await Promise.race([
+      getHandler(),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Handler init timeout')), 10000)
+      )
+    ]);
     
     // Handle the request (serverless-http handles the response)
-    const result = await serverlessHandler(req, res);
+    const result = await Promise.race([
+      serverlessHandler(req, res),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Request handler timeout')), 230000)
+      )
+    ]);
     
+    clearTimeout(timeoutId);
     const duration = Date.now() - startTime;
     console.log(`Request completed in ${duration}ms`);
     
     return result;
   } catch (error) {
+    clearTimeout(timeoutId);
     const duration = Date.now() - startTime;
     console.error(`Handler error after ${duration}ms:`, error.message);
     
     if (!res.headersSent) {
-      res.status(500).json({ 
-        error: 'Internal server error', 
+      res.status(error.message.includes('timeout') ? 504 : 500).json({ 
+        error: error.message.includes('timeout') ? 'Request timeout' : 'Internal server error', 
         message: error.message,
         duration: `${duration}ms`
       });
