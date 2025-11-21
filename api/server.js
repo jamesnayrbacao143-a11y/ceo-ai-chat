@@ -889,23 +889,25 @@ async function getHandler() {
 }
 
 // Export async handler for Vercel
+// CRITICAL: Check health endpoint BEFORE any async operations
 module.exports = async (req, res) => {
-  const startTime = Date.now();
+  // For health/ping endpoints, respond IMMEDIATELY - NO async, NO requires, NO nothing
+  const url = req.url || '';
+  const path = req.path || url.split('?')[0];
   
-  // For health/ping endpoints, respond IMMEDIATELY before anything else
-  // Check both req.path and req.url to handle different Vercel routing
-  const path = req.path || (req.url ? req.url.split('?')[0] : '');
-  if (path === '/api/health' || path === '/api/ping' || req.url === '/api/health' || req.url === '/api/ping') {
-    console.log('Fast path: health/ping endpoint - responding immediately');
+  if (path === '/api/health' || path === '/api/ping' || url.includes('/api/health') || url.includes('/api/ping')) {
+    // Respond immediately without any async operations
     if (!res.headersSent) {
-      return res.status(200).json({ 
+      res.status(200).json({ 
         status: 'ok', 
         timestamp: new Date().toISOString(),
-        database: dbInitialized ? 'connected' : 'pending'
+        database: 'pending' // Don't check dbInitialized - it might trigger async operations
       });
     }
     return;
   }
+  
+  const startTime = Date.now();
   
   // Set a maximum execution time (4 minutes to avoid 5-minute timeout)
   const MAX_EXECUTION_TIME = 240000; // 4 minutes
@@ -927,14 +929,24 @@ module.exports = async (req, res) => {
     console.log('Path:', req.path);
     console.log('Time:', new Date().toISOString());
     
-    // Load auth routes lazily (only when needed)
-    loadAuthRoutes();
+    // Load auth routes lazily (only when needed) - with timeout
+    try {
+      await Promise.race([
+        Promise.resolve(loadAuthRoutes()),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Auth routes load timeout')), 2000)
+        )
+      ]);
+    } catch (err) {
+      console.warn('Auth routes load timeout/warning:', err.message);
+      // Continue anyway
+    }
     
     // Get handler (will initialize database if needed, with timeout)
     const serverlessHandler = await Promise.race([
       getHandler(),
       new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Handler init timeout')), 10000)
+        setTimeout(() => reject(new Error('Handler init timeout')), 8000)
       )
     ]);
     
