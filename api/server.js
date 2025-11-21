@@ -961,15 +961,19 @@ module.exports = async (req, res) => {
     const serverlessHandler = await Promise.race([
       getHandler(),
       new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Handler init timeout')), 8000)
+        setTimeout(() => reject(new Error('Handler init timeout')), 10000)
       )
     ]);
     
     // Handle the request (serverless-http handles the response)
+    // For chat endpoints, allow more time for AI processing (up to 4.5 minutes)
+    const isChatEndpoint = path.includes('/api/chat') || url.includes('/api/chat');
+    const handlerTimeout = isChatEndpoint ? 270000 : 230000; // 4.5 min for chat, 3.8 min for others
+    
     const result = await Promise.race([
       serverlessHandler(req, res),
       new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Request handler timeout')), 230000)
+        setTimeout(() => reject(new Error('Request handler timeout')), handlerTimeout)
       )
     ]);
     
