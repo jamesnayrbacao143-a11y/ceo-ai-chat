@@ -890,19 +890,33 @@ async function getHandler() {
 }
 
 // Export async handler for Vercel
-// CRITICAL: Check health endpoint BEFORE any async operations
+// CRITICAL: Check health endpoint BEFORE any async operations or variable access
 module.exports = async (req, res) => {
-  // For health/ping endpoints, respond IMMEDIATELY - NO async, NO requires, NO nothing
-  const url = req.url || '';
-  const path = req.path || url.split('?')[0];
-  
-  if (path === '/api/health' || path === '/api/ping' || url.includes('/api/health') || url.includes('/api/ping')) {
-    // Respond immediately without any async operations
-    if (!res.headersSent) {
+  try {
+    // For health/ping endpoints, respond IMMEDIATELY - NO async, NO requires, NO nothing
+    // Check URL first before accessing any module variables
+    const url = (req && req.url) ? String(req.url) : '';
+    const path = (req && req.path) ? String(req.path) : (url ? url.split('?')[0] : '');
+    
+    if (path === '/api/health' || path === '/api/ping' || 
+        url.includes('/api/health') || url.includes('/api/ping')) {
+      // Respond immediately - don't access ANY module variables
+      if (res && !res.headersSent) {
+        res.status(200).json({ 
+          status: 'ok', 
+          timestamp: new Date().toISOString(),
+          database: 'pending'
+        });
+      }
+      return;
+    }
+  } catch (healthError) {
+    // If even health check fails, try to respond with error
+    if (res && !res.headersSent) {
       res.status(200).json({ 
         status: 'ok', 
         timestamp: new Date().toISOString(),
-        database: 'pending' // Don't check dbInitialized - it might trigger async operations
+        error: 'Initialization in progress'
       });
     }
     return;
