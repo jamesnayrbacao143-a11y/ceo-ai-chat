@@ -12,20 +12,15 @@ require('dotenv').config();
 let Bytez = null;
 let BytezLoadAttempted = false;
 
-// Handle unhandled rejections from Bytez module loading
-process.on('unhandledRejection', (reason, promise) => {
-  if (reason && typeof reason === 'object' && reason.message) {
-    const errorMsg = reason.message;
-    if (errorMsg.includes('undici') || errorMsg.includes('MODULE_NOT_FOUND')) {
-      console.warn('⚠️ Bytez module loading failed (missing undici dependency)');
-      console.warn('   Bytez features will be disabled.');
-      Bytez = false;
-      BytezLoadAttempted = true;
-      return; // Don't log as unhandled rejection
-    }
+// Check if undici is available before loading Bytez
+function isUndiciAvailable() {
+  try {
+    require.resolve('undici');
+    return true;
+  } catch (e) {
+    return false;
   }
-  // Let other unhandled rejections through
-});
+}
 
 function loadBytez() {
   if (BytezLoadAttempted) {
@@ -33,6 +28,14 @@ function loadBytez() {
   }
   
   BytezLoadAttempted = true;
+  
+  // Check if undici is available first
+  if (!isUndiciAvailable()) {
+    console.warn('⚠️ undici package not found - Bytez features will be disabled');
+    console.warn('   To enable Bytez, ensure undici is installed: npm install undici');
+    Bytez = false;
+    return null;
+  }
   
   try {
     // Use a more defensive approach - check if we can even attempt to load
