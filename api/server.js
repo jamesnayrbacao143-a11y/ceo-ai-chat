@@ -879,13 +879,18 @@ module.exports = async (req, res) => {
   const startTime = Date.now();
   
   // For health/ping endpoints, respond IMMEDIATELY before anything else
-  if (req.path === '/api/health' || req.path === '/api/ping') {
+  // Check both req.path and req.url to handle different Vercel routing
+  const path = req.path || (req.url ? req.url.split('?')[0] : '');
+  if (path === '/api/health' || path === '/api/ping' || req.url === '/api/health' || req.url === '/api/ping') {
     console.log('Fast path: health/ping endpoint - responding immediately');
-    return res.status(200).json({ 
-      status: 'ok', 
-      timestamp: new Date().toISOString(),
-      database: dbInitialized ? 'connected' : 'pending'
-    });
+    if (!res.headersSent) {
+      return res.status(200).json({ 
+        status: 'ok', 
+        timestamp: new Date().toISOString(),
+        database: dbInitialized ? 'connected' : 'pending'
+      });
+    }
+    return;
   }
   
   // Set a maximum execution time (4 minutes to avoid 5-minute timeout)
