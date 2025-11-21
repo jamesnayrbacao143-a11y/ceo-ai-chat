@@ -106,15 +106,22 @@ const DEFAULT_MODEL = process.env.GITHUB_MODEL || 'openai/gpt-4o';
 const BYTEZ_API_KEY = (process.env.BYTEZ_API_KEY || '').trim();
 
 // Check if undici is available - if not, disable Bytez completely
+// Use a quick check that won't hang
 let BYTEZ_ENABLED = false;
 try {
-  require.resolve('undici');
-  BYTEZ_ENABLED = true;
-} catch (e) {
-  console.warn('⚠️ undici package not found - Bytez features will be disabled');
-  if (BYTEZ_API_KEY) {
-    console.warn('   To enable Bytez, ensure undici is installed: npm install undici');
+  // Quick synchronous check - if this hangs, there's a bigger problem
+  const fs = require('fs');
+  const path = require('path');
+  const undiciPath = path.join(process.cwd(), 'node_modules', 'undici');
+  if (fs.existsSync(undiciPath) || fs.existsSync(path.join(undiciPath, 'package.json'))) {
+    BYTEZ_ENABLED = true;
   }
+} catch (e) {
+  // Silently fail - Bytez will be disabled
+}
+if (!BYTEZ_ENABLED && BYTEZ_API_KEY) {
+  console.warn('⚠️ undici package not found - Bytez features will be disabled');
+  console.warn('   To enable Bytez, ensure undici is installed: npm install undici');
 }
 const DEFAULT_IMAGE_MODEL =
   process.env.BYTEZ_IMAGE_MODEL || 'stabilityai/stable-diffusion-xl-base-1.0';
@@ -871,6 +878,16 @@ async function getHandler() {
 module.exports = async (req, res) => {
   const startTime = Date.now();
   
+  // For health/ping endpoints, respond IMMEDIATELY before anything else
+  if (req.path === '/api/health' || req.path === '/api/ping') {
+    console.log('Fast path: health/ping endpoint - responding immediately');
+    return res.status(200).json({ 
+      status: 'ok', 
+      timestamp: new Date().toISOString(),
+      database: dbInitialized ? 'connected' : 'pending'
+    });
+  }
+  
   // Set a maximum execution time (4 minutes to avoid 5-minute timeout)
   const MAX_EXECUTION_TIME = 240000; // 4 minutes
   const timeoutId = setTimeout(() => {
@@ -890,17 +907,6 @@ module.exports = async (req, res) => {
     console.log('URL:', req.url);
     console.log('Path:', req.path);
     console.log('Time:', new Date().toISOString());
-    
-    // For health/ping endpoints, respond immediately
-    if (req.path === '/api/health' || req.path === '/api/ping') {
-      console.log('Fast path: health/ping endpoint');
-      clearTimeout(timeoutId);
-      return res.status(200).json({ 
-        status: 'ok', 
-        timestamp: new Date().toISOString(),
-        database: dbInitialized ? 'connected' : 'pending'
-      });
-    }
     
     // Get handler (will initialize database if needed, with timeout)
     const serverlessHandler = await Promise.race([
