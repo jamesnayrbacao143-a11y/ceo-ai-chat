@@ -10,17 +10,31 @@ require('dotenv').config();
 
 // Lazy load Bytez to avoid module loading errors if undici is missing
 let Bytez = null;
+let BytezLoadAttempted = false;
+
 function loadBytez() {
-  if (Bytez === null) {
-    try {
-      Bytez = require('bytez.js');
-    } catch (error) {
-      console.warn('Failed to load bytez.js module:', error.message);
-      console.warn('Bytez features will be disabled. Ensure undici is installed.');
-      Bytez = false; // Mark as failed to prevent retries
-    }
+  if (BytezLoadAttempted) {
+    return Bytez !== false ? Bytez : null;
   }
-  return Bytez !== false ? Bytez : null;
+  
+  BytezLoadAttempted = true;
+  
+  try {
+    // Use a more defensive approach - check if we can even attempt to load
+    Bytez = require('bytez.js');
+    return Bytez;
+  } catch (error) {
+    // Catch any error including module resolution errors
+    const errorMsg = error.message || String(error);
+    if (errorMsg.includes('undici') || errorMsg.includes('MODULE_NOT_FOUND')) {
+      console.warn('⚠️ Bytez module cannot be loaded (missing undici dependency)');
+      console.warn('   Bytez features will be disabled. To enable, ensure undici is installed.');
+    } else {
+      console.warn('⚠️ Failed to load bytez.js module:', errorMsg);
+    }
+    Bytez = false; // Mark as failed to prevent retries
+    return null;
+  }
 }
 
 const ModelClient = aiInference.default;
@@ -131,8 +145,9 @@ if (GITHUB_TOKEN) {
 
 let bytezClient = null;
 function initializeBytezClient() {
-  if (bytezClient !== null) {
-    return bytezClient; // Already initialized or attempted
+  // Return cached result (success, failure, or null if not attempted)
+  if (bytezClient !== null && bytezClient !== undefined) {
+    return bytezClient !== false ? bytezClient : null;
   }
   
   if (!BYTEZ_API_KEY) {
@@ -144,17 +159,18 @@ function initializeBytezClient() {
   try {
     const BytezModule = loadBytez();
     if (!BytezModule) {
-      console.warn('Bytez module not available - Bytez features disabled');
+      // loadBytez already logged the warning
       bytezClient = false;
       return null;
     }
     
     bytezClient = new BytezModule(BYTEZ_API_KEY);
-    console.log('Bytez SDK client initialized (API server)');
+    console.log('✅ Bytez SDK client initialized (API server)');
     return bytezClient;
   } catch (error) {
-    console.error('Failed to initialize Bytez SDK (API server):', error.message);
-    console.warn('Bytez features will be disabled. If you need Bytez, ensure undici is installed.');
+    const errorMsg = error.message || String(error);
+    console.error('❌ Failed to initialize Bytez SDK (API server):', errorMsg);
+    console.warn('   Bytez features will be disabled.');
     bytezClient = false; // Mark as failed
     return null;
   }
