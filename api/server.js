@@ -984,12 +984,21 @@ module.exports = async (req, res) => {
   } catch (error) {
     clearTimeout(timeoutId);
     const duration = Date.now() - startTime;
-    console.error(`Handler error after ${duration}ms:`, error.message);
+    const errorMessage = error && error.message ? String(error.message) : 'Unknown error';
+    console.error(`Handler error after ${duration}ms:`, errorMessage);
+    console.error('Full error:', error);
     
     if (!res.headersSent) {
-      res.status(error.message.includes('timeout') ? 504 : 500).json({ 
-        error: error.message.includes('timeout') ? 'Request timeout' : 'Internal server error', 
-        message: error.message,
+      // Sanitize error message to avoid exposing internal details
+      const safeErrorMessage = errorMessage.includes('timeout') 
+        ? 'Request timeout' 
+        : (errorMessage.includes('path is not defined') 
+          ? 'Request processing error' 
+          : errorMessage);
+      
+      res.status(errorMessage.includes('timeout') ? 504 : 500).json({ 
+        error: errorMessage.includes('timeout') ? 'Request timeout' : 'Internal server error', 
+        message: safeErrorMessage,
         duration: `${duration}ms`
       });
     }
