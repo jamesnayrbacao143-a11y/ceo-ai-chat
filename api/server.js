@@ -838,6 +838,23 @@ app.get('/api/ping', (req, res) => {
   res.json({ status: 'pong', timestamp: Date.now() });
 });
 
+// Environment variables check endpoint (for debugging)
+app.get('/api/env-check', (req, res) => {
+  // Don't expose actual secrets, just check if they exist
+  res.json({
+    hasJWTSecret: !!process.env.JWT_SECRET,
+    hasGoogleClientId: !!process.env.GOOGLE_CLIENT_ID,
+    hasGoogleClientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
+    hasGoogleRedirectUri: !!process.env.GOOGLE_REDIRECT_URI,
+    hasDatabaseUrl: !!process.env.DATABASE_URL,
+    hasAppUrl: !!process.env.APP_URL,
+    hasGithubToken: !!process.env.GITHUB_TOKEN,
+    hasBytezApiKey: !!process.env.BYTEZ_API_KEY,
+    googleRedirectUri: process.env.GOOGLE_REDIRECT_URI || 'not set',
+    appUrl: process.env.APP_URL || 'not set'
+  });
+});
+
 // For Vercel serverless functions
 // Initialize database and create handler
 let handler;
