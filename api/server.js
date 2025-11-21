@@ -6,6 +6,7 @@ const { AzureKeyCredential } = require('@azure/core-auth');
 const Bytez = require('bytez.js');
 const jwt = require('jsonwebtoken');
 const { initDatabase, getPool } = require('../database/db');
+const serverless = require('serverless-http');
 require('dotenv').config();
 
 const ModelClient = aiInference.default;
@@ -706,7 +707,11 @@ app.get('/api/health', (req, res) => {
 });
 
 // For Vercel serverless functions
-// Export as handler function (similar to cron-cleanup.js)
+// Wrap Express app with serverless-http for proper Vercel compatibility
+const handler = serverless(app, {
+  binary: ['image/*', 'application/pdf']
+});
+
 module.exports = async (req, res) => {
   // Log all incoming requests for debugging
   console.log('=== INCOMING REQUEST ===');
@@ -727,9 +732,9 @@ module.exports = async (req, res) => {
     }
   }
   
-  // Handle the request with Express app
+  // Handle the request with serverless-http wrapped Express app
   try {
-    return app(req, res);
+    return handler(req, res);
   } catch (error) {
     console.error('Handler error:', error);
     res.status(500).json({ error: 'Internal server error', message: error.message });
