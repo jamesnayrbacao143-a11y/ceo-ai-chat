@@ -3,11 +3,25 @@ const cors = require('cors');
 const OpenAI = require('openai');
 const aiInference = require('@azure-rest/ai-inference');
 const { AzureKeyCredential } = require('@azure/core-auth');
-const Bytez = require('bytez.js');
 const jwt = require('jsonwebtoken');
 const { initDatabase, getPool } = require('../database/db');
 const serverless = require('serverless-http');
 require('dotenv').config();
+
+// Lazy load Bytez to avoid module loading errors if undici is missing
+let Bytez = null;
+function loadBytez() {
+  if (Bytez === null) {
+    try {
+      Bytez = require('bytez.js');
+    } catch (error) {
+      console.warn('Failed to load bytez.js module:', error.message);
+      console.warn('Bytez features will be disabled. Ensure undici is installed.');
+      Bytez = false; // Mark as failed to prevent retries
+    }
+  }
+  return Bytez !== false ? Bytez : null;
+}
 
 const ModelClient = aiInference.default;
 const { isUnexpected } = aiInference;
@@ -116,18 +130,34 @@ if (GITHUB_TOKEN) {
 }
 
 let bytezClient = null;
-if (BYTEZ_API_KEY) {
+function initializeBytezClient() {
+  if (bytezClient !== null) {
+    return bytezClient; // Already initialized or attempted
+  }
+  
+  if (!BYTEZ_API_KEY) {
+    console.log('BYTEZ_API_KEY not set - Bytez features disabled');
+    bytezClient = false; // Mark as disabled
+    return null;
+  }
+  
   try {
-    // Lazy load Bytez to avoid module loading errors if undici is missing
-    bytezClient = new Bytez(BYTEZ_API_KEY);
+    const BytezModule = loadBytez();
+    if (!BytezModule) {
+      console.warn('Bytez module not available - Bytez features disabled');
+      bytezClient = false;
+      return null;
+    }
+    
+    bytezClient = new BytezModule(BYTEZ_API_KEY);
     console.log('Bytez SDK client initialized (API server)');
+    return bytezClient;
   } catch (error) {
     console.error('Failed to initialize Bytez SDK (API server):', error.message);
     console.warn('Bytez features will be disabled. If you need Bytez, ensure undici is installed.');
-    bytezClient = null; // Ensure it's null on error
+    bytezClient = false; // Mark as failed
+    return null;
   }
-} else {
-  console.log('BYTEZ_API_KEY not set - Bytez features disabled');
 }
 
 const conversations = new Map();
@@ -373,11 +403,12 @@ function extractImageUrlFromOutput(output) {
 }
 
 async function runBytezChatModel(messages, modelId = BYTEZ_GPT4O_MODEL) {
-  if (!bytezClient) {
+  const client = initializeBytezClient();
+  if (!client) {
     throw new Error('Bytez client not configured. Please set BYTEZ_API_KEY.');
   }
 
-  const bytezModel = bytezClient.model(modelId);
+  const bytezModel = client.model(modelId);
   const normalizedMessages = messages.map((msg) => ({
     role: msg.role,
     content: flattenMessageContent(msg.content)
@@ -544,7 +575,7 @@ app.post('/api/chat', async (req, res) => {
       let attemptError = null;
 
       // Handle Bytez GPT-4.1 first (prioritized)
-      if (modelName === 'openai/gpt-4.1-bytez' && bytezClient) {
+      if (modelName === 'openai/gpt-4.1-bytez' && initializeBytezClient()) {
         try {
           console.log(`📤 Sending request to Bytez SDK with model: ${BYTEZ_GPT41_MODEL}`);
           const responseText = await runBytezChatModel(messages, BYTEZ_GPT41_MODEL);
@@ -590,7 +621,7 @@ app.post('/api/chat', async (req, res) => {
         }
       }
 
-      if (!handled && modelName === 'openai/gpt-4.1' && bytezClient) {
+      if (!handled && modelName === 'openai/gpt-4.1' && initializeBytezClient()) {
         try {
           console.log(`📤 Sending request to Bytez SDK with model: ${modelName}`);
           const responseText = await runBytezChatModel(messages, BYTEZ_GPT41_MODEL);
@@ -606,19 +637,21 @@ app.post('/api/chat', async (req, res) => {
       }
 
       if (!handled && (modelName === 'openai/gpt-4o' || modelName === 'openai/gpt-4o-mini')) {
-        try {
-          console.log(`📤 Sending request to Bytez SDK with model: ${modelName}`);
-          const bytezModelId =
-            modelName === 'openai/gpt-4o-mini' ? BYTEZ_GPT4O_MINI_MODEL : BYTEZ_GPT4O_MODEL;
-          const responseText = await runBytezChatModel(messages, bytezModelId);
-          finalResponse = responseText;
-          modelUsed = modelName;
-          modelSuccess = true;
-          handled = true;
-          break;
-        } catch (bytezError) {
-          attemptError = bytezError;
-          console.error(`Failed Bytez attempt for ${modelName}:`, bytezError.message);
+        if (initializeBytezClient()) {
+          try {
+            console.log(`📤 Sending request to Bytez SDK with model: ${modelName}`);
+            const bytezModelId =
+              modelName === 'openai/gpt-4o-mini' ? BYTEZ_GPT4O_MINI_MODEL : BYTEZ_GPT4O_MODEL;
+            const responseText = await runBytezChatModel(messages, bytezModelId);
+            finalResponse = responseText;
+            modelUsed = modelName;
+            modelSuccess = true;
+            handled = true;
+            break;
+          } catch (bytezError) {
+            attemptError = bytezError;
+            console.error(`Failed Bytez attempt for ${modelName}:`, bytezError.message);
+          }
         }
       }
 
@@ -694,14 +727,15 @@ app.post('/api/generate-image', async (req, res) => {
       return res.status(400).json({ error: 'Prompt is required for image generation.' });
     }
 
-    if (!bytezClient) {
+    const client = initializeBytezClient();
+    if (!client) {
       return res.status(500).json({
         error: 'Image generation is not configured. Please set BYTEZ_API_KEY on the server.'
       });
     }
 
     const modelId = model || DEFAULT_IMAGE_MODEL;
-    const imageModel = bytezClient.model(modelId);
+    const imageModel = client.model(modelId);
     const runOptions = options && typeof options === 'object' ? options : undefined;
     const { error, output } = await imageModel.run(trimmedPrompt, runOptions);
 
