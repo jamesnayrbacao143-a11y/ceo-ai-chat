@@ -863,17 +863,18 @@ async function getHandler() {
   handlerInitializing = true;
   
   try {
-    // Ensure database is initialized first (with timeout)
+    // Ensure database is initialized first (with SHORT timeout for serverless)
     try {
       await Promise.race([
         ensureDatabase(),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('DB init timeout')), 5000)
+          setTimeout(() => reject(new Error('DB init timeout')), 3000)
         )
       ]);
     } catch (dbError) {
       console.warn('Database init timeout/warning:', dbError.message);
-      // Continue anyway - some endpoints might work
+      // Continue anyway - some endpoints might work without DB
+      dbInitialized = true; // Mark as "initialized" to prevent retries
     }
     
     // Create serverless handler after database is ready
