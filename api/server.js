@@ -41,7 +41,7 @@ const ModelClient = aiInference.default;
 const { isUnexpected } = aiInference;
 
 const app = express();
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET || '5b1ffd48df8097eb77869bdbbbefb0a7f12607629cd45eb828f8e55399be26a9fc871008fd51a655000ef0ad9f91302b3c87f3625dfe8ebf9aeb74acee84af8a';
 
 app.use(cors());
 app.use(express.json({ limit: '25mb' }));
@@ -850,8 +850,8 @@ app.get('/api/env-check', (req, res) => {
     hasAppUrl: !!process.env.APP_URL,
     hasGithubToken: !!process.env.GITHUB_TOKEN,
     hasBytezApiKey: !!process.env.BYTEZ_API_KEY,
-    googleRedirectUri: process.env.GOOGLE_REDIRECT_URI || 'not set',
-    appUrl: process.env.APP_URL || 'not set'
+    googleRedirectUri: process.env.GOOGLE_REDIRECT_URI,
+    appUrl: process.env.APP_URL
   });
 });
 
