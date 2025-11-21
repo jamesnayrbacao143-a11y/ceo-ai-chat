@@ -8,13 +8,13 @@ const { sendVerificationEmail, sendThankYouEmail } = require('../utils/email');
 require('dotenv').config();
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET || '5b1ffd48df8097eb77869bdbbbefb0a7f12607629cd45eb828f8e55399be26a9fc871008fd51a655000ef0ad9f91302b3c87f3625dfe8ebf9aeb74acee84af8a';
 const UPLOAD_LIMIT = 5; // Maximum uploads per user
 
 // Google OAuth Client
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/api/auth/google/callback';
+const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || 'http://harviongpt.vercel.app/api/auth/google/callback';
 
 let googleOAuthClient = null;
 if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
@@ -513,7 +513,7 @@ router.get('/chat-history', async (req, res) => {
 router.get('/google', async (req, res) => {
   if (!googleOAuthClient) {
     console.error('Google OAuth not configured. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env file');
-    const frontendUrl = process.env.APP_URL || 'http://localhost:3000';
+    const frontendUrl = process.env.APP_URL || 'https://harviongpt.vercel.app';
     return res.redirect(`${frontendUrl}/?error=google_oauth_not_configured`);
   }
 
@@ -530,7 +530,7 @@ router.get('/google', async (req, res) => {
     res.redirect(authUrl);
   } catch (error) {
     console.error('Google OAuth redirect error:', error);
-    const frontendUrl = process.env.APP_URL || 'http://localhost:3000';
+    const frontendUrl = process.env.APP_URL || 'https://harviongpt.vercel.app';
     res.redirect(`${frontendUrl}/?error=google_auth_failed`);
   }
 });
@@ -540,7 +540,7 @@ router.get('/google/callback', async (req, res) => {
   try {
     if (!googleOAuthClient) {
       console.error('Google OAuth not configured. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env file');
-      const frontendUrl = process.env.APP_URL || 'http://localhost:3000';
+      const frontendUrl = process.env.APP_URL || 'https://harviongpt.vercel.app';
       return res.redirect(`${frontendUrl}/?error=google_oauth_not_configured`);
     }
 
@@ -548,13 +548,13 @@ router.get('/google/callback', async (req, res) => {
     
     if (googleError) {
       console.error('Google OAuth error:', googleError);
-      const frontendUrl = process.env.APP_URL || 'http://localhost:3000';
+      const frontendUrl = process.env.APP_URL || 'https://harviongpt.vercel.app';
       return res.redirect(`${frontendUrl}/?error=google_auth_failed&details=${encodeURIComponent(googleError)}`);
     }
     
     if (!code) {
       console.error('No authorization code received from Google');
-      const frontendUrl = process.env.APP_URL || 'http://localhost:3000';
+      const frontendUrl = process.env.APP_URL || 'http://harviongpt.vercel.app';
       return res.redirect(`${frontendUrl}/?error=google_auth_failed&details=no_code`);
     }
 
