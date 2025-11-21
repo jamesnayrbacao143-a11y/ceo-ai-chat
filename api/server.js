@@ -12,44 +12,26 @@ require('dotenv').config();
 let Bytez = null;
 let BytezLoadAttempted = false;
 
-// Check if undici is available before loading Bytez
-function isUndiciAvailable() {
-  try {
-    require.resolve('undici');
-    return true;
-  } catch (e) {
-    return false;
-  }
-}
 
 function loadBytez() {
+  // Early exit if Bytez is disabled
+  if (!BYTEZ_ENABLED) {
+    return null;
+  }
+  
   if (BytezLoadAttempted) {
     return Bytez !== false ? Bytez : null;
   }
   
   BytezLoadAttempted = true;
   
-  // Check if undici is available first
-  if (!isUndiciAvailable()) {
-    console.warn('⚠️ undici package not found - Bytez features will be disabled');
-    console.warn('   To enable Bytez, ensure undici is installed: npm install undici');
-    Bytez = false;
-    return null;
-  }
-  
   try {
-    // Use a more defensive approach - check if we can even attempt to load
     Bytez = require('bytez.js');
     return Bytez;
   } catch (error) {
     // Catch any error including module resolution errors
     const errorMsg = error.message || String(error);
-    if (errorMsg.includes('undici') || errorMsg.includes('MODULE_NOT_FOUND')) {
-      console.warn('⚠️ Bytez module cannot be loaded (missing undici dependency)');
-      console.warn('   Bytez features will be disabled. To enable, ensure undici is installed.');
-    } else {
-      console.warn('⚠️ Failed to load bytez.js module:', errorMsg);
-    }
+    console.warn('⚠️ Failed to load bytez.js module:', errorMsg);
     Bytez = false; // Mark as failed to prevent retries
     return null;
   }
@@ -122,6 +104,18 @@ const GITHUB_TOKEN = (process.env.GITHUB_TOKEN || '').trim();
 const GITHUB_BASE_URL = 'https://models.github.ai/inference';
 const DEFAULT_MODEL = process.env.GITHUB_MODEL || 'openai/gpt-4o';
 const BYTEZ_API_KEY = (process.env.BYTEZ_API_KEY || '').trim();
+
+// Check if undici is available - if not, disable Bytez completely
+let BYTEZ_ENABLED = false;
+try {
+  require.resolve('undici');
+  BYTEZ_ENABLED = true;
+} catch (e) {
+  console.warn('⚠️ undici package not found - Bytez features will be disabled');
+  if (BYTEZ_API_KEY) {
+    console.warn('   To enable Bytez, ensure undici is installed: npm install undici');
+  }
+}
 const DEFAULT_IMAGE_MODEL =
   process.env.BYTEZ_IMAGE_MODEL || 'stabilityai/stable-diffusion-xl-base-1.0';
 const BYTEZ_GPT4O_MODEL = process.env.BYTEZ_GPT4O_MODEL || 'openai/gpt-4o';
