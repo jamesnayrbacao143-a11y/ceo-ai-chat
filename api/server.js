@@ -892,31 +892,28 @@ async function getHandler() {
 // Export async handler for Vercel
 // CRITICAL: Check health endpoint BEFORE any async operations or variable access
 module.exports = async (req, res) => {
-  // Define URL and path variables at the very beginning
-  const url = (req && req.url) ? String(req.url) : '';
-  const path = (req && req.path) ? String(req.path) : (url ? url.split('?')[0] : '');
+  // Define URL and path variables at the very beginning - MUST be at function scope
+  let url = '';
+  let path = '';
   
   try {
-    // For health/ping endpoints, respond IMMEDIATELY - NO async, NO requires, NO nothing
-    if (path === '/api/health' || path === '/api/ping' || 
-        url.includes('/api/health') || url.includes('/api/ping')) {
-      // Respond immediately - don't access ANY module variables
-      if (res && !res.headersSent) {
-        res.status(200).json({ 
-          status: 'ok', 
-          timestamp: new Date().toISOString(),
-          database: 'pending'
-        });
-      }
-      return;
-    }
-  } catch (healthError) {
-    // If even health check fails, try to respond with error
+    url = (req && req.url) ? String(req.url) : '';
+    path = (req && req.path) ? String(req.path) : (url ? url.split('?')[0] : '');
+  } catch (e) {
+    // Fallback if req is malformed
+    url = '';
+    path = '';
+  }
+  
+  // For health/ping endpoints, respond IMMEDIATELY - NO async, NO requires, NO nothing
+  if (path === '/api/health' || path === '/api/ping' || 
+      url.includes('/api/health') || url.includes('/api/ping')) {
+    // Respond immediately - don't access ANY module variables
     if (res && !res.headersSent) {
       res.status(200).json({ 
         status: 'ok', 
         timestamp: new Date().toISOString(),
-        error: 'Initialization in progress'
+        database: 'pending'
       });
     }
     return;
@@ -967,7 +964,10 @@ module.exports = async (req, res) => {
     
     // Handle the request (serverless-http handles the response)
     // For chat endpoints, allow more time for AI processing (up to 4.5 minutes)
-    const isChatEndpoint = path.includes('/api/chat') || url.includes('/api/chat');
+    // Use path and url variables defined at function start
+    const requestPath = path || (req && req.path) || '';
+    const requestUrl = url || (req && req.url) || '';
+    const isChatEndpoint = requestPath.includes('/api/chat') || requestUrl.includes('/api/chat');
     const handlerTimeout = isChatEndpoint ? 270000 : 230000; // 4.5 min for chat, 3.8 min for others
     
     const result = await Promise.race([
