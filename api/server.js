@@ -96,9 +96,23 @@ async function ensureDatabase() {
   await dbInitPromise;
 }
 
-// Auth routes
-const authRoutes = require('../routes/auth');
-app.use('/api/auth', authRoutes);
+// Auth routes - lazy load to avoid blocking module initialization
+let authRoutesLoaded = false;
+function loadAuthRoutes() {
+  if (!authRoutesLoaded) {
+    try {
+      const authRoutes = require('../routes/auth');
+      app.use('/api/auth', authRoutes);
+      authRoutesLoaded = true;
+    } catch (error) {
+      console.error('Failed to load auth routes:', error.message);
+      // Create a fallback route
+      app.use('/api/auth', (req, res) => {
+        res.status(500).json({ error: 'Auth routes not available' });
+      });
+    }
+  }
+}
 
 const GITHUB_TOKEN = (process.env.GITHUB_TOKEN || '').trim();
 const GITHUB_BASE_URL = 'https://models.github.ai/inference';
@@ -912,6 +926,9 @@ module.exports = async (req, res) => {
     console.log('URL:', req.url);
     console.log('Path:', req.path);
     console.log('Time:', new Date().toISOString());
+    
+    // Load auth routes lazily (only when needed)
+    loadAuthRoutes();
     
     // Get handler (will initialize database if needed, with timeout)
     const serverlessHandler = await Promise.race([
