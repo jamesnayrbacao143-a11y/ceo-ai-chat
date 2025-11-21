@@ -38,19 +38,31 @@ Complete step-by-step guide para sa deployment ng HarvionGPT gamit ang Supabase 
 
 ### 1.3 Get Connection String
 
+⚠️ **IMPORTANTE PARA SA VERCEL:** Gamitin ang **Session Pooler**, hindi Direct connection!
+
 1. Sa project dashboard, pumunta sa **"Settings"** → **"Database"**
 2. Scroll down sa **"Connection string"** section
-3. Piliin ang **"URI"** tab
-4. I-copy ang connection string (magiging ganito):
+3. **Piliin ang "Session Pooler" tab** (hindi "Direct connection")
+   - Session Pooler: Para sa serverless functions (Vercel, AWS Lambda, etc.)
+   - Direct connection: Para sa long-lived connections (VMs, containers)
+4. Piliin ang **"URI"** format
+5. I-copy ang connection string (magiging ganito):
    ```
-   postgresql://postgres:[YOUR-PASSWORD]@db.xxxxx.supabase.co:5432/postgres
+   postgresql://postgres:[YOUR-PASSWORD]@db.xxxxx.supabase.co:6543/postgres?pgbouncer=true
    ```
-5. ⚠️ **IMPORTANTE:** I-replace ang `[YOUR-PASSWORD]` sa actual password mo
-6. Final connection string:
+   ⚠️ **TANDAAN:** Port **6543** (Session Pooler), hindi 5432 (Direct connection)
+6. ⚠️ **IMPORTANTE:** I-replace ang `[YOUR-PASSWORD]` sa actual password mo
+7. Final connection string:
    ```
-   postgresql://postgres:your_actual_password@db.xxxxx.supabase.co:5432/postgres
+   postgresql://postgres:your_actual_password@db.xxxxx.supabase.co:6543/postgres?pgbouncer=true
    ```
-7. I-save ito para sa Step 4
+8. I-save ito para sa Step 4
+
+**Bakit Session Pooler?**
+- ✅ Compatible sa IPv4 networks (Vercel uses IPv4)
+- ✅ Optimized para sa serverless functions (short-lived connections)
+- ✅ Mas mabilis connection establishment
+- ✅ Mas efficient para sa Vercel serverless functions
 
 ### 1.4 Run Database Schema
 
@@ -163,8 +175,9 @@ Click **"Environment Variables"** at i-add ang mga sumusunod:
 
 1. **DATABASE_URL** (o **POSTGRES_CONNECTION_STRING**)
    - Name: `DATABASE_URL`
-   - Value: (i-paste ang Supabase connection string mula sa Step 1.3)
-   - Format: `postgresql://postgres:password@db.xxxxx.supabase.co:5432/postgres`
+   - Value: (i-paste ang Supabase **Session Pooler** connection string mula sa Step 1.3)
+   - Format: `postgresql://postgres:password@db.xxxxx.supabase.co:6543/postgres?pgbouncer=true`
+   - ⚠️ **IMPORTANTE:** Gamitin ang Session Pooler (port 6543), hindi Direct connection (port 5432)
    - Environment: ✅ Production, ✅ Preview, ✅ Development
 
 2. **JWT_SECRET**
@@ -177,7 +190,7 @@ Click **"Environment Variables"** at i-add ang mga sumusunod:
    - Value: `https://harviongpt.vercel.app` (o kung ano ang Vercel URL mo)
    - Environment: ✅ All
    - ⚠️ Note: I-update ito pagkatapos ng deployment sa actual URL
-
+4db1d0a6ebfd32740764b13b4a772e2ddc3cc4343881a0a062dbbb1f72c31f91
 4. **CRON_SECRET** (para sa auto-cleanup security)
    - Name: `CRON_SECRET`
    - Value: (gumawa ng random string, halimbawa: `my_cron_secret_key_2024`)
