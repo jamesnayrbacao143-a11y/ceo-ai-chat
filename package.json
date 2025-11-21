@@ -29,6 +29,7 @@
     "nodemailer": "^7.0.10",
     "openai": "^6.9.1",
     "pg": "^8.16.3",
-    "serverless-http": "^4.0.0"
+    "serverless-http": "^4.0.0",
+    "undici": "^6.19.8"
   }
 }

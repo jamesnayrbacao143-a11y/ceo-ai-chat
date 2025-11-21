@@ -118,11 +118,16 @@ if (GITHUB_TOKEN) {
 let bytezClient = null;
 if (BYTEZ_API_KEY) {
   try {
+    // Lazy load Bytez to avoid module loading errors if undici is missing
     bytezClient = new Bytez(BYTEZ_API_KEY);
     console.log('Bytez SDK client initialized (API server)');
   } catch (error) {
     console.error('Failed to initialize Bytez SDK (API server):', error.message);
+    console.warn('Bytez features will be disabled. If you need Bytez, ensure undici is installed.');
+    bytezClient = null; // Ensure it's null on error
   }
+} else {
+  console.log('BYTEZ_API_KEY not set - Bytez features disabled');
 }
 
 const conversations = new Map();
