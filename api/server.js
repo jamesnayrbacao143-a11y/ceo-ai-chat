@@ -25,10 +25,20 @@ app.use((req, res, next) => {
   next();
 });
 
-// Initialize database (lazy initialization for serverless)
-initDatabase().catch(err => {
-  console.error('Database initialization error:', err);
-});
+// Initialize database (will be initialized before handler is created)
+let dbInitialized = false;
+async function ensureDatabase() {
+  if (!dbInitialized) {
+    try {
+      await initDatabase();
+      dbInitialized = true;
+      console.log('Database initialized for serverless function');
+    } catch (err) {
+      console.error('Database initialization error:', err);
+      throw err;
+    }
+  }
+}
 
 // Auth routes
 const authRoutes = require('../routes/auth');
@@ -707,37 +717,47 @@ app.get('/api/health', (req, res) => {
 });
 
 // For Vercel serverless functions
-// Wrap Express app with serverless-http for proper Vercel compatibility
-const handler = serverless(app, {
-  binary: ['image/*', 'application/pdf']
-});
+// Initialize database and create handler
+let handler;
 
-module.exports = async (req, res) => {
-  // Log all incoming requests for debugging
-  console.log('=== INCOMING REQUEST ===');
-  console.log('Method:', req.method);
-  console.log('URL:', req.url);
-  console.log('Path:', req.path);
-  console.log('Headers:', JSON.stringify(req.headers, null, 2));
-  console.log('========================');
-  
-  // Ensure database is initialized
-  if (!getPool()) {
-    try {
-      console.log('Initializing database...');
-      await initDatabase();
-      console.log('Database initialized');
-    } catch (err) {
-      console.error('Database init error:', err);
-    }
+async function getHandler() {
+  if (!handler) {
+    // Ensure database is initialized first
+    await ensureDatabase();
+    
+    // Create serverless handler after database is ready
+    handler = serverless(app, {
+      binary: ['image/*', 'application/pdf']
+    });
+    console.log('Serverless handler created');
   }
-  
-  // Handle the request with serverless-http wrapped Express app
+  return handler;
+}
+
+// Export async handler for Vercel
+module.exports = async (req, res) => {
   try {
-    return handler(req, res);
+    // Log all incoming requests for debugging
+    console.log('=== INCOMING REQUEST ===');
+    console.log('Method:', req.method);
+    console.log('URL:', req.url);
+    console.log('Path:', req.path);
+    console.log('========================');
+    
+    // Get handler (will initialize database if needed)
+    const serverlessHandler = await getHandler();
+    
+    // Handle the request
+    return serverlessHandler(req, res);
   } catch (error) {
     console.error('Handler error:', error);
-    res.status(500).json({ error: 'Internal server error', message: error.message });
+    if (!res.headersSent) {
+      res.status(500).json({ 
+        error: 'Internal server error', 
+        message: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
+    }
   }
 };
 
