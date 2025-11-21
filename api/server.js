@@ -892,22 +892,23 @@ async function getHandler() {
 // Export async handler for Vercel
 // CRITICAL: Check health endpoint BEFORE any async operations or variable access
 module.exports = async (req, res) => {
-  // Define URL and path variables at the very beginning - MUST be at function scope
-  let url = '';
-  let path = '';
+  // Define URL and requestPath variables at the very beginning - MUST be at function scope
+  // Use requestPath instead of path to avoid conflict with Node.js path module
+  let requestUrl = '';
+  let requestPath = '';
   
   try {
-    url = (req && req.url) ? String(req.url) : '';
-    path = (req && req.path) ? String(req.path) : (url ? url.split('?')[0] : '');
+    requestUrl = (req && req.url) ? String(req.url) : '';
+    requestPath = (req && req.path) ? String(req.path) : (requestUrl ? requestUrl.split('?')[0] : '');
   } catch (e) {
     // Fallback if req is malformed
-    url = '';
-    path = '';
+    requestUrl = '';
+    requestPath = '';
   }
   
   // For health/ping endpoints, respond IMMEDIATELY - NO async, NO requires, NO nothing
-  if (path === '/api/health' || path === '/api/ping' || 
-      url.includes('/api/health') || url.includes('/api/ping')) {
+  if (requestPath === '/api/health' || requestPath === '/api/ping' || 
+      requestUrl.includes('/api/health') || requestUrl.includes('/api/ping')) {
     // Respond immediately - don't access ANY module variables
     if (res && !res.headersSent) {
       res.status(200).json({ 
@@ -964,9 +965,7 @@ module.exports = async (req, res) => {
     
     // Handle the request (serverless-http handles the response)
     // For chat endpoints, allow more time for AI processing (up to 4.5 minutes)
-    // Use path and url variables defined at function start
-    const requestPath = path || (req && req.path) || '';
-    const requestUrl = url || (req && req.url) || '';
+    // Use requestPath and requestUrl variables defined at function start
     const isChatEndpoint = requestPath.includes('/api/chat') || requestUrl.includes('/api/chat');
     const handlerTimeout = isChatEndpoint ? 270000 : 230000; // 4.5 min for chat, 3.8 min for others
     
