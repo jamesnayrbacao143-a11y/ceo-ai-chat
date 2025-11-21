@@ -27,17 +27,45 @@ app.use((req, res, next) => {
 
 // Initialize database (will be initialized before handler is created)
 let dbInitialized = false;
+let dbInitPromise = null;
+
 async function ensureDatabase() {
-  if (!dbInitialized) {
-    try {
-      await initDatabase();
-      dbInitialized = true;
-      console.log('Database initialized for serverless function');
-    } catch (err) {
-      console.error('Database initialization error:', err);
-      throw err;
-    }
+  // If already initialized, return immediately
+  if (dbInitialized) return;
+  
+  // If initialization is in progress, wait for it
+  if (dbInitPromise) {
+    await dbInitPromise;
+    return;
   }
+  
+  // Start initialization with timeout
+  dbInitPromise = (async () => {
+    try {
+      console.log('Starting database initialization...');
+      const success = await Promise.race([
+        initDatabase(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Database init timeout')), 8000)
+        )
+      ]);
+      
+      if (success) {
+        dbInitialized = true;
+        console.log('✅ Database initialized for serverless function');
+      } else {
+        console.warn('⚠️ Database initialization returned false, but continuing...');
+        dbInitialized = true; // Mark as initialized to prevent retries
+      }
+    } catch (err) {
+      console.error('❌ Database initialization error:', err.message);
+      // Don't throw - allow app to continue even if DB fails
+      // Some endpoints might work without DB
+      dbInitialized = true; // Mark as initialized to prevent infinite retries
+    }
+  })();
+  
+  await dbInitPromise;
 }
 
 // Auth routes
@@ -705,15 +733,21 @@ app.post('/api/clear', (req, res) => {
   res.json({ success: true });
 });
 
-// Health check endpoint
+// Health check endpoint (fast, no DB required)
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
     vercel: process.env.VERCEL === '1',
     hasDatabase: !!getPool(),
-    hasGithubToken: !!GITHUB_TOKEN
+    hasGithubToken: !!GITHUB_TOKEN,
+    uptime: process.uptime()
   });
+});
+
+// Simple ping endpoint (fastest possible response)
+app.get('/api/ping', (req, res) => {
+  res.json({ status: 'pong', timestamp: Date.now() });
 });
 
 // For Vercel serverless functions
@@ -736,26 +770,55 @@ async function getHandler() {
 
 // Export async handler for Vercel
 module.exports = async (req, res) => {
+  const startTime = Date.now();
+  
   try {
     // Log all incoming requests for debugging
     console.log('=== INCOMING REQUEST ===');
     console.log('Method:', req.method);
     console.log('URL:', req.url);
     console.log('Path:', req.path);
-    console.log('========================');
+    console.log('Time:', new Date().toISOString());
+    
+    // For health/ping endpoints, respond immediately without DB init
+    if (req.path === '/api/health' || req.path === '/api/ping') {
+      console.log('Fast path: health/ping endpoint');
+      const serverlessHandler = await getHandler();
+      return serverlessHandler(req, res);
+    }
+    
+    // For other endpoints, ensure database is initialized (with timeout)
+    try {
+      await Promise.race([
+        ensureDatabase(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('DB init timeout')), 10000)
+        )
+      ]);
+    } catch (dbError) {
+      console.warn('Database init timeout/warning:', dbError.message);
+      // Continue anyway - some endpoints might work
+    }
     
     // Get handler (will initialize database if needed)
     const serverlessHandler = await getHandler();
     
-    // Handle the request
-    return serverlessHandler(req, res);
+    // Handle the request (serverless-http handles the response)
+    const result = await serverlessHandler(req, res);
+    
+    const duration = Date.now() - startTime;
+    console.log(`Request completed in ${duration}ms`);
+    
+    return result;
   } catch (error) {
-    console.error('Handler error:', error);
+    const duration = Date.now() - startTime;
+    console.error(`Handler error after ${duration}ms:`, error.message);
+    
     if (!res.headersSent) {
       res.status(500).json({ 
         error: 'Internal server error', 
         message: error.message,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        duration: `${duration}ms`
       });
     }
   }
