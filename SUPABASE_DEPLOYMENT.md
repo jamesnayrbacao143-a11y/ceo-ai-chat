@@ -46,7 +46,15 @@ Complete step-by-step guide para sa deployment ng HarvionGPT gamit ang Supabase 
    - Session Pooler: Para sa serverless functions (Vercel, AWS Lambda, etc.)
    - Direct connection: Para sa long-lived connections (VMs, containers)
 4. Piliin ang **"URI"** format
-5. I-copy ang connection string (magiging ganito):
+5. I-copy ang connection string
+
+**May dalawang format ng Session Pooler:**
+- **Format 1 (Port 6543):** `postgresql://postgres:password@db.xxxxx.supabase.co:6543/postgres?pgbouncer=true`
+- **Format 2 (Port 5432 with pooler hostname):** `postgresql://postgres.xxxxx:password@aws-1-ap-southeast-2.pooler.supabase.com:5432/postgres`
+
+**Pareho silang gumagana!** Gamitin kung alin ang available sa iyo.
+
+**Example connection string:**
    ```
    postgresql://postgres:[YOUR-PASSWORD]@db.xxxxx.supabase.co:6543/postgres?pgbouncer=true
    ```
